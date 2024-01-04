@@ -10,11 +10,11 @@ webhook:
     - name: ARGOCD_BIN_PATH
       value: argocd
     - name: ARGOCD_PASSWORD
-      value: Gb6-M7A3XA2LUi1N
+      value: your-argocd-password #change to your argocd password
     - name: ARGOCD_SERVER_HOST
-      value: 10.70.0.5:30543
+      value: IP_OR_DOMAIN:PORT #change to your argocd host
     - name: ARGOCD_USERNAME
-      value: admin
+      value: admin #your argocd username
 
   service:
     type: NodePort
