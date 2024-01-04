@@ -1,0 +1,36 @@
+
+webhook:
+  fullnameOverride: argocd-webhook
+  ### override app name. if not exist, use .Chart.Name
+  # appNameOverride:
+
+  replicaCount: 1
+
+  env:
+    - name: ARGOCD_BIN_PATH
+      value: argocd
+    - name: ARGOCD_PASSWORD
+      value: Gb6-M7A3XA2LUi1N
+    - name: ARGOCD_SERVER_HOST
+      value: 10.70.0.5:30543
+    - name: ARGOCD_USERNAME
+      value: admin
+
+  service:
+    type: NodePort
+    port: 31001
+
+  image:
+    registry: docker.io
+    repository: jibill13/argocd-webhook
+    ### If tag is not exist, use .Chart.appVersion
+    # tag:
+    pullPolicy: IfNotPresent
+
+  resources:
+    limits:
+      cpu: "100m"
+      memory: "128Mi"
+    requests:
+      cpu: "10m"
+      memory: "30Mi"

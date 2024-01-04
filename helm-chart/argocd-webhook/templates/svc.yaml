@@ -1,0 +1,21 @@
+{{- $fullName := include "common.fullname" $ }}
+{{- $appName := include "common.appName" $ }}
+{{- with .Values.webhook.service }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullName }}
+spec:
+  selector:
+    app: {{ $appName }}
+    instance: {{ $.Release.Name }}
+  type: {{ .type }}
+  ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+    targetPort: http
+    {{- if eq .type "NodePort" }}
+    nodePort: {{ .port }}
+    {{- end }}
+{{- end }}

@@ -1,0 +1,42 @@
+{{- $fullName := include "common.fullname" $ }}
+{{- $appName := include "common.appName" $ }}
+{{- $webImage := printf "%s" (include "common.webImage" $) }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: {{ $appName }}
+    instance: {{ .Release.Name }}
+  name: {{ $fullName }}
+spec:
+  replicas: {{ .Values.webhook.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ $appName }}
+      instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ $appName }}
+        instance: {{ .Release.Name }}
+    spec:
+      dnsPolicy: ClusterFirst
+      containers:
+      - env:
+          {{- toYaml .Values.webhook.env | nindent 10 }}
+        name: {{ $appName }}
+        image: "{{ $webImage }}"
+        imagePullPolicy: {{ .Values.webhook.image.pullPolicy }}
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        resources:
+          {{- toYaml .Values.webhook.resources | nindent 10 }}
+        volumeMounts:
+        - name: localtime
+          mountPath: /etc/localtime
+      volumes:
+      - name: localtime
+        hostPath:
+          path: /etc/localtime
