@@ -2,6 +2,7 @@ import os
 import shlex, subprocess
 from flask import Flask, request, jsonify
 import json
+import logging
 
 app = Flask(__name__)
 app.config['DEBUG'] = True
@@ -26,7 +27,7 @@ def extract_path_from_url(url):
 def cmd(*args):
     # 将参数组合成命令
     command = ' '.join(shlex.quote(arg) for arg in args)
-    print(f"run cmd: {command}")
+    logging.debug(f"run cmd: {command}")
     # 执行命令
     try:
         result = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, executable="/bin/sh")
@@ -37,16 +38,17 @@ def cmd(*args):
 
 @app.route('/api/webhook', methods=['POST'])
 def get_webhook():
+    logging.debug(f"request data: {request.data}")
     if not request.data:  # 检测是否有数据
-        return ('get webhook request failed.', 400)
+        return jsonify('request webhook request failed. data is empty'), 500
 
     data = request.data.decode('utf-8')
-    print(f"get webhook request is {json.dumps(data, indent=4)}")
     # 获取到POST过来的数据
     data_json = json.loads(data)
     # get branch
     ref = data_json["ref"]
     branch = ref.split('/')[-1]
+    logging.debug(f"get branch is {branch}")
     # get repo
     repo_uri = extract_path_from_url(data_json["repository"]["url"])
     repo_full_url = data_json["repository"]["url"]
@@ -57,10 +59,17 @@ def get_webhook():
         modifieds = commit["modified"]
         for modified in modifieds:
             dirname_list.add(modified.split('/')[0])
+    # 先登录
+    cmd(f"{ARGOCD_BIN_PATH}", "login", f"{ARGOCD_SERVER_HOST}", "--username", f"{ARGOCD_USERNAME}", "--password",
+        f"{ARGOCD_PASSWORD}", "--insecure")
     # 项目路径
-    print(f"get branch={branch}, dirname_list={','.join(dirname_list)}")
+    logging.debug(f"get branch={branch}, dirname_list={','.join(dirname_list)}")
     argocd_app_list = cmd(f"{ARGOCD_BIN_PATH}", "app", "list", "-o", "json")
-    argocd_app_list_json = json.loads(argocd_app_list)
+    logging.debug(f"get app list is: {argocd_app_list[:100]}")
+    try:
+        argocd_app_list_json = json.loads(argocd_app_list)
+    except json.JSONDecodeError as e:
+        return jsonify(f"argocd_app_list_json JSON 解析错误: {e}"), 500
     sync_app_list = []
     for app in argocd_app_list_json:
         app_repo = extract_path_from_url(app["spec"]["source"]["repoURL"])
@@ -68,19 +77,17 @@ def get_webhook():
         app_repo_branch = app["spec"]["source"]["targetRevision"]
         app_name = app["metadata"]["name"]
         if app_repo == repo_uri and app_dirname in dirname_list and app_repo_branch == branch:
-            print(f"prepare sync app: {app_name}, dirname: {app_dirname}, branch: {branch}, repo: {repo_full_url}")
+            logging.info(f"prepare sync app: {app_name}, dirname: {app_dirname}, branch: {branch}, repo: {repo_full_url}")
             sync_app_list.append(app_name)
     if len(sync_app_list) > 0:
         cmd(f"{ARGOCD_BIN_PATH}", "app", "sync", " ".join(sync_app_list))
     else:
-        print(f"argocd sync app = {sync_app_list}. nothing to sync")
+        logging.info(f"argocd sync app = {sync_app_list}. nothing to sync")
     return jsonify("success.")
 
 
 # 按间距中的绿色按钮以运行脚本。
 if __name__ == '__main__':
-    # - argocd login ${ARGOCD_SERVER_HOST} --username ${ARGOCD_USERNAME} --password ${ARGOCD_PASSWORD} --insecure
-    # - argocd app list
-    # - argocd app sync ${ARGOCD_APPNAME}
-    print(cmd(f"{ARGOCD_BIN_PATH}", "login", f"{ARGOCD_SERVER_HOST}", "--username", f"{ARGOCD_USERNAME}", "--password", f"{ARGOCD_PASSWORD}", "--insecure"))
+    LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
+    logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
     app.run(debug=True, port="8080", host="0.0.0.0")
