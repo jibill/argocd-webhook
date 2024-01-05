@@ -80,7 +80,7 @@ def get_webhook():
             logging.info(f"prepare sync app: {app_name}, dirname: {app_dirname}, branch: {branch}, repo: {repo_full_url}")
             sync_app_list.append(app_name)
     if len(sync_app_list) > 0:
-        cmd(f"{ARGOCD_BIN_PATH}", "app", "sync", " ".join(sync_app_list))
+        cmd(f"{ARGOCD_BIN_PATH}", "app", "sync", *sync_app_list)
     else:
         logging.info(f"argocd sync app = {sync_app_list}. nothing to sync")
     return jsonify("success.")
